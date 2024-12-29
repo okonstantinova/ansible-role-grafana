@@ -1,0 +1,12 @@
+---
+grafana_version: "11.3.0"
+grafana_url: "https://dl.grafana.com/enterprise/release/grafana-enterprise_{{ grafana_version }}_amd64.deb"
+grafana_install_path: "/usr/share/grafana"
+grafana_config_path: "/etc/grafana/grafana.ini"
+grafana_data_dir: "/var/lib/grafana"
+grafana_dashboard_dir: "/var/lib/grafana/dashboards"
+grafana_user: "grafana"
+grafana_group: "grafana"
+
+grafana_smtp_mail: 'kola43843@gmail.com'
+grafana_smtp_password: 'grafana'

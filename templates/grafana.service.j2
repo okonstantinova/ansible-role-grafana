@@ -1,0 +1,14 @@
+[Unit]
+Description=Grafana Service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=grafana
+Group=grafana
+ExecStart=/usr/sbin/grafana-server --config=/etc/grafana/grafana.ini --homepath=/usr/share/grafana --packaging=deb
+Restart=always
+Environment="GF_PATHS_DATA=/var/lib/grafana" "GF_PATHS_LOGS=/var/log/grafana"
+
+[Install]
+WantedBy=multi-user.target

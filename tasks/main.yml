@@ -1,0 +1,116 @@
+---
+- name: Ensure Python3 is installed
+  apt:
+    name: python3
+    state: present
+    update_cache: yes
+
+- name: Ensure required dependencies are installed
+  apt:
+    name:
+      - adduser
+      - fontconfig
+      - musl
+      - wget
+    state: present
+    update_cache: yes
+
+- name: Copy Grafana Enterprise package to target node
+  copy:
+    src: "/home/vagrant/grafana-enterprise_{{ grafana_version }}_amd64.deb"
+    dest: "/tmp/grafana-enterprise_{{ grafana_version }}_amd64.deb"
+    mode: '0644'
+
+- name: Install Grafana Enterprise manually
+  apt:
+    deb: "/tmp/grafana-enterprise_{{ grafana_version }}_amd64.deb"
+    state: present
+    force: yes
+
+- name: Create Grafana directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: '0755'
+  loop:
+    - "{{ grafana_data_dir }}"
+    - "{{ grafana_dashboard_dir }}"
+    - "/etc/grafana/provisioning/dashboards"
+    - "/etc/grafana/provisioning/datasources"
+
+- name: Copy Grafana dashboard provisioning file from template
+  template:
+    src: "sample_dashboard.yaml.j2"
+    dest: "/etc/grafana/provisioning/dashboards/sample_dashboard.yaml"
+    mode: '0644'
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+
+- name: Copy Grafana datasource provisioning file from template
+  template:
+    src: "sample_datasource.yaml.j2"
+    dest: "/etc/grafana/provisioning/datasources/sample.yaml"
+    mode: '0644'
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+
+- name: Download the Node Exporter dashboard JSON
+  get_url:
+    url: "https://grafana.com/api/dashboards/1860/revisions/29/download"
+    dest: "/var/lib/grafana/dashboards/node_exporter_full.json"
+    mode: '0644'
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+
+- name: Configure SMTP settings in grafana.ini
+  lineinfile:
+    path: /etc/grafana/grafana.ini
+    regexp: '^;?{{ item.option }} ='
+    line: "{{ item.option }} = {{ item.value }}"
+    owner: grafana
+    group: grafana
+    mode: '0644'
+  loop:
+    - { option: "enabled", value: "true" }
+    - { option: "host", value: "smtp.gmail.com:587" }
+    - { option: "user", value: "{{ grafana_smtp_mail }}" }
+    - { option: "password", value: "{{ grafana_smtp_password }}" }
+    - { option: "from_address", value: "{{ grafana_smtp_mail }}" }
+    - { option: "from_name", value: "Grafana Alerts" }
+    - { option: "skip_verify", value: "true" }
+
+- name: Deploy alerting rules configuration
+  template:
+    src: templates/alerting_rules.yaml.j2
+    dest: /etc/grafana/provisioning/alerting/rules.yaml
+    owner: grafana
+    group: grafana
+    mode: '0644'
+
+- name: Deploy contact points configuration
+  template:
+    src: templates/contact_point.yaml.j2
+    dest: /etc/grafana/provisioning/alerting/point.yaml
+    owner: grafana
+    group: grafana
+    mode: '0644'
+
+- name: Deploy Grafana service file
+  template:
+    src: grafana.service.j2
+    dest: /etc/systemd/system/grafana.service
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Reload systemd configuration
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Enable and start Grafana service
+  ansible.builtin.systemd:
+    name: grafana
+    state: started
+    enabled: yes
